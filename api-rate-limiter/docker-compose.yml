@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      PORT: "8080"
+      REDIS_ADDR: redis:6379
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/rate_limiter?sslmode=disable
+    ports:
+      - "8080:8080"
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: rate_limiter
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rate_limiter"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  redis:
+    image: redis:7
+    ports:
+      - "6380:6379"
+
+volumes:
+  postgres-data:
